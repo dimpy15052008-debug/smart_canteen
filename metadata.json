@@ -1,0 +1,12 @@
+{
+  "name": "SmartUni.Ai",
+  "description": "One University. One Intelligent Digital Campus - unified AI-powered student enrollment, geo-facial attendance, 3D voice campus assistant, pre-order smart canteen, digital certificates, and administrative workflows.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

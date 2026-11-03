@@ -1,0 +1,63 @@
+# SmartUni.Ai — .dockerignore
+# Keeps the Docker build context lean and fast.
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+*.egg-link
+.installed.cfg
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env.local
+.env.*.local
+
+# Secrets / local config (never bake into image)
+.env
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Dev / test artifacts
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.log
+
+# SQLite dev database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE configs
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+.DS_Store
+
+# Docs (not needed at runtime)
+docs/
+
+# Git
+.git/
+.gitignore
+
+# Node (frontend lives in root, not in backend/)
+node_modules/

@@ -1,0 +1,20 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Raw private university source documents (do not commit proprietary data)
+*.docx
+*.xlsx
+*.xls
+*.doc
+
+# Sanitized student records (private - not for public repo)
+src/data/processed/sanitizedStudentRecords.json
+
+# Keep public knowledge manifest (non-sensitive)
+!src/data/processed/publicKnowledgeManifest.json

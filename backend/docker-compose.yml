@@ -1,0 +1,97 @@
+version: "3.9"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SmartUni.Ai — docker-compose
+# Usage:
+#   docker compose up               → starts postgres + api (dev mode)
+#   docker compose --profile worker up → also starts the scheduler worker
+#   docker compose --profile prod up   → production-grade with 4 workers
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL 16 ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smartuni
+      POSTGRES_PASSWORD: smartuni
+      POSTGRES_DB: smartuni_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartuni -d smartuni_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── FastAPI Backend (dev — 2 workers) ────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - ENV=development
+      - AUTH_MODE=dev
+      - DATABASE_URL=postgresql+psycopg://smartuni:smartuni@postgres:5432/smartuni_dev
+      - DIRECT_URL=postgresql+psycopg://smartuni:smartuni@postgres:5432/smartuni_dev
+      - JWT_SECRET=${JWT_SECRET:-dev_secret_change_me_in_production}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+      - LLM_PROVIDER=${LLM_PROVIDER:-mock}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - PAYMENT_MODE=${PAYMENT_MODE:-mock}
+      - STORAGE_BACKEND=local
+      - PUBLIC_VERIFY_BASE_URL=http://localhost:3000
+      - ENABLE_SCHEDULER=false
+      - TRANSPORT_SIMULATOR=false
+      - FACE_VERIFIER=simulated
+      - LOG_LEVEL=INFO
+      - WEB_CONCURRENCY=2
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - upload_data:/app/data/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Scheduler Worker (DISABLED by default — use the 'worker' profile) ────────
+  # To enable: docker compose --profile worker up
+  # DO NOT run this alongside a horizontally-scaled API (single instance only).
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    profiles: ["worker"]
+    restart: unless-stopped
+    command: >
+      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8001"
+    environment:
+      - ENV=development
+      - AUTH_MODE=dev
+      - DATABASE_URL=postgresql+psycopg://smartuni:smartuni@postgres:5432/smartuni_dev
+      - DIRECT_URL=postgresql+psycopg://smartuni:smartuni@postgres:5432/smartuni_dev
+      - JWT_SECRET=${JWT_SECRET:-dev_secret_change_me_in_production}
+      - ENABLE_SCHEDULER=true
+      - TRANSPORT_SIMULATOR=${TRANSPORT_SIMULATOR:-false}
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+volumes:
+  pg_data:
+  upload_data:

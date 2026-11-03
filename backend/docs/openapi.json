@@ -1,0 +1,6634 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SmartUni.Ai API",
+    "description": "Production backend for the SmartUni.Ai Smart University Digital Campus platform. Provides REST APIs for attendance, fees, canteen, certificates, helpdesk, CampusAI tool-calling, ML early warning, and administrative analytics.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Liveness",
+        "description": "Always returns 200 while the process is running.",
+        "operationId": "liveness_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness",
+        "description": "Checks DB connectivity. Returns 503 if anything is broken.",
+        "operationId": "readiness_api_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/status": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Auth Status",
+        "description": "Return current auth mode. Useful for the frontend to detect dev vs prod.",
+        "operationId": "auth_status_api_v1_auth_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/dev-login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Dev Login",
+        "description": "Log in as a seeded demo user for a role.\n\nHard-disabled in production. Available in AUTH_MODE=dev.",
+        "operationId": "dev_login_api_v1_auth_dev_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login",
+        "description": "Email + password login with rate limiting.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Get Me",
+        "description": "Get the currently authenticated user's profile.",
+        "operationId": "get_me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/ai/chat": {
+      "post": {
+        "tags": [
+          "ai-legacy"
+        ],
+        "summary": "Legacy Chat",
+        "description": "Legacy chat endpoint \u2014 now proxies to the real CampusAI service.\nUses AUTH_MODE=dev student profile in dev mode for seamless demo.\nFalls back to heuristic stub if no auth header is present.",
+        "operationId": "legacy_chat_api_ai_chat_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/classify-ticket": {
+      "post": {
+        "tags": [
+          "ai-legacy"
+        ],
+        "summary": "Legacy Classify Ticket",
+        "description": "Legacy ticket classification endpoint \u2014 delegates to the real heuristic classifier.",
+        "operationId": "legacy_classify_ticket_api_ai_classify_ticket_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/academics/courses/me": {
+      "get": {
+        "tags": [
+          "academics"
+        ],
+        "summary": "Get My Courses",
+        "description": "Retrieve enrolled courses and schedules for the logged in student.",
+        "operationId": "get_my_courses_api_v1_academics_courses_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CourseScheduleOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get My Courses Api V1 Academics Courses Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/academics/exams/me": {
+      "get": {
+        "tags": [
+          "academics"
+        ],
+        "summary": "Get My Exams",
+        "description": "Retrieve exam schedules, seating allocations, and venues for the logged in student.",
+        "operationId": "get_my_exams_api_v1_academics_exams_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExamRecordOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get My Exams Api V1 Academics Exams Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/academics/attendance/summary/me": {
+      "get": {
+        "tags": [
+          "academics"
+        ],
+        "summary": "Get My Attendance Summary",
+        "description": "Retrieve aggregate attendance percentage, at-risk count, and per-course breakdown.",
+        "operationId": "get_my_attendance_summary_api_v1_academics_attendance_summary_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceSummaryOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/academics/attendance/history/me": {
+      "get": {
+        "tags": [
+          "academics"
+        ],
+        "summary": "Get My Attendance History",
+        "description": "Retrieve recent attendance verification log records for the logged in student.",
+        "operationId": "get_my_attendance_history_api_v1_academics_attendance_history_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AttendanceRecordOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get My Attendance History Api V1 Academics Attendance History Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/students/me": {
+      "get": {
+        "tags": [
+          "students"
+        ],
+        "summary": "Get Student Dashboard",
+        "description": "Retrieve full student dashboard profile and academic overview.",
+        "operationId": "get_student_dashboard_api_v1_students_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/fees/invoices/me": {
+      "get": {
+        "tags": [
+          "fees"
+        ],
+        "summary": "Get My Fee Invoices",
+        "description": "Retrieve all fee invoices for the authenticated student with computed status.",
+        "operationId": "get_my_fee_invoices_api_v1_fees_invoices_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FeeInvoiceOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get My Fee Invoices Api V1 Fees Invoices Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/fees/invoices/{id}/pay": {
+      "post": {
+        "tags": [
+          "fees"
+        ],
+        "summary": "Initiate Fee Payment",
+        "description": "Validate payment amount and initiate checkout order (converts to paise).",
+        "operationId": "initiate_fee_payment_api_v1_fees_invoices__id__pay_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiatePaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiatePaymentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fees/payments/verify": {
+      "post": {
+        "tags": [
+          "fees"
+        ],
+        "summary": "Verify Payment Signature",
+        "description": "Verify checkout HMAC signature, record payment, and issue receipt.",
+        "operationId": "verify_payment_signature_api_v1_fees_payments_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyPaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/fees/payments/{id}/receipt": {
+      "get": {
+        "tags": [
+          "fees"
+        ],
+        "summary": "Download Payment Receipt",
+        "description": "Download official PDF payment receipt.",
+        "operationId": "download_payment_receipt_api_v1_fees_payments__id__receipt_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/razorpay": {
+      "post": {
+        "tags": [
+          "fees"
+        ],
+        "summary": "Razorpay Webhook",
+        "description": "Process incoming Razorpay webhook on the raw body. Replay-safe and deduplicated.",
+        "operationId": "razorpay_webhook_api_v1_webhooks_razorpay_post",
+        "parameters": [
+          {
+            "name": "x-razorpay-signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Razorpay-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/helpdesk/classify": {
+      "post": {
+        "tags": [
+          "helpdesk"
+        ],
+        "summary": "Classify Ticket Endpoint",
+        "description": "Classify ticket text into category, priority, sentiment, and SLA routing.",
+        "operationId": "classify_ticket_endpoint_api_v1_helpdesk_classify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassifyTicketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassifyTicketResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/helpdesk/tickets": {
+      "post": {
+        "tags": [
+          "helpdesk"
+        ],
+        "summary": "Create Ticket Endpoint",
+        "description": "Create a new helpdesk ticket with server-side AI classification.",
+        "operationId": "create_ticket_endpoint_api_v1_helpdesk_tickets_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelpdeskTicketOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "helpdesk"
+        ],
+        "summary": "List Tickets Endpoint",
+        "description": "List tickets (students see own; admin/faculty see all).",
+        "operationId": "list_tickets_endpoint_api_v1_helpdesk_tickets_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HelpdeskTicketOut"
+                  },
+                  "title": "Response List Tickets Endpoint Api V1 Helpdesk Tickets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/helpdesk/tickets/{id}": {
+      "get": {
+        "tags": [
+          "helpdesk"
+        ],
+        "summary": "Get Ticket Endpoint",
+        "description": "Get ticket details and conversation thread.",
+        "operationId": "get_ticket_endpoint_api_v1_helpdesk_tickets__id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelpdeskTicketOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/helpdesk/tickets/{id}/resolve": {
+      "post": {
+        "tags": [
+          "helpdesk"
+        ],
+        "summary": "Resolve Ticket Endpoint",
+        "description": "Resolve ticket (faculty / admin only).",
+        "operationId": "resolve_ticket_endpoint_api_v1_helpdesk_tickets__id__resolve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelpdeskTicketOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/helpdesk/tickets/{id}/messages": {
+      "post": {
+        "tags": [
+          "helpdesk"
+        ],
+        "summary": "Add Message Endpoint",
+        "description": "Add a new message to a ticket conversation thread.",
+        "operationId": "add_message_endpoint_api_v1_helpdesk_tickets__id__messages_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketMessageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/helpdesk/sla/run": {
+      "post": {
+        "tags": [
+          "helpdesk"
+        ],
+        "summary": "Trigger Sla Escalation Endpoint",
+        "description": "Run the SLA escalation job on demand.",
+        "operationId": "trigger_sla_escalation_endpoint_api_v1_helpdesk_sla_run_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/certificates/request": {
+      "post": {
+        "tags": [
+          "certificates"
+        ],
+        "summary": "Request Certificate",
+        "description": "Submit a new certificate request. Eligibility is evaluated immediately.",
+        "operationId": "request_certificate_api_v1_certificates_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestCertificateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateRequestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/certificates/me": {
+      "get": {
+        "tags": [
+          "certificates"
+        ],
+        "summary": "List My Certificates",
+        "description": "Return all certificate requests for the authenticated student.",
+        "operationId": "list_my_certificates_api_v1_certificates_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CertificateRequestOut"
+                  },
+                  "type": "array",
+                  "title": "Response List My Certificates Api V1 Certificates Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/certificates/{cert_id}/action": {
+      "post": {
+        "tags": [
+          "certificates"
+        ],
+        "summary": "Action Certificate",
+        "description": "Approve or reject a pending certificate request.",
+        "operationId": "action_certificate_api_v1_certificates__cert_id__action_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Cert Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveRejectIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateRequestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/certificates/{cert_id}/download": {
+      "get": {
+        "tags": [
+          "certificates"
+        ],
+        "summary": "Download Certificate",
+        "description": "Stream the PDF for an approved certificate.",
+        "operationId": "download_certificate_api_v1_certificates__cert_id__download_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Cert Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/certificates/verify/{verification_code}": {
+      "get": {
+        "tags": [
+          "certificates"
+        ],
+        "summary": "Public Verify",
+        "description": "Public endpoint \u2014 verify a certificate using the QR-encoded code.\nNo authentication required; safe to expose on the internet.",
+        "operationId": "public_verify_api_v1_certificates_verify__verification_code__get",
+        "parameters": [
+          {
+            "name": "verification_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Verification Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicVerifyOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/chat": {
+      "post": {
+        "tags": [
+          "campus-ai"
+        ],
+        "summary": "Campus Ai Chat",
+        "description": "CampusAI chat endpoint with Gemini tool-calling, DB tool execution,\nconversation persistence, and heuristic fallback.",
+        "operationId": "campus_ai_chat_api_v1_ai_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai/conversations": {
+      "get": {
+        "tags": [
+          "campus-ai"
+        ],
+        "summary": "List Conversations",
+        "description": "Return the user's 20 most recent AI conversations.",
+        "operationId": "list_conversations_api_v1_ai_conversations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Conversations Api V1 Ai Conversations Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ai/conversations/{conversation_id}/messages": {
+      "get": {
+        "tags": [
+          "campus-ai"
+        ],
+        "summary": "Get Conversation Messages",
+        "description": "Retrieve the full message history for a conversation.",
+        "operationId": "get_conversation_messages_api_v1_ai_conversations__conversation_id__messages_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessageOut"
+                  },
+                  "title": "Response Get Conversation Messages Api V1 Ai Conversations  Conversation Id  Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/sessions": {
+      "post": {
+        "tags": [
+          "attendance"
+        ],
+        "summary": "Create Session",
+        "description": "Faculty or admin opens a live attendance verification window.",
+        "operationId": "create_session_api_v1_attendance_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceSessionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/attendance/sessions/active": {
+      "get": {
+        "tags": [
+          "attendance"
+        ],
+        "summary": "Get Active Sessions",
+        "description": "List active attendance sessions visible to the current user.",
+        "operationId": "get_active_sessions_api_v1_attendance_sessions_active_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AttendanceSessionOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get Active Sessions Api V1 Attendance Sessions Active Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/attendance/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "attendance"
+        ],
+        "summary": "Get Session",
+        "description": "Get details for an attendance session.",
+        "operationId": "get_session_api_v1_attendance_sessions__session_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceSessionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/sessions/{session_id}/close": {
+      "post": {
+        "tags": [
+          "attendance"
+        ],
+        "summary": "Close Session",
+        "description": "Faculty or admin closes an active attendance window.",
+        "operationId": "close_session_api_v1_attendance_sessions__session_id__close_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceSessionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/mark": {
+      "post": {
+        "tags": [
+          "attendance"
+        ],
+        "summary": "Mark Attendance",
+        "description": "Student submits geofence coordinates and biometric landmark results\nto mark present in an active lecture session.",
+        "operationId": "mark_attendance_api_v1_attendance_mark_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkAttendanceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkAttendanceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/attendance/override": {
+      "post": {
+        "tags": [
+          "attendance"
+        ],
+        "summary": "Manual Override",
+        "description": "Faculty or admin records an attendance exception with a mandatory justification note.",
+        "operationId": "manual_override_api_v1_attendance_override_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualOverrideIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceRecordOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/attendance/{session_id}/override": {
+      "post": {
+        "tags": [
+          "attendance"
+        ],
+        "summary": "Manual Override For Session",
+        "description": "Faculty or admin records an attendance exception for a specific session.",
+        "operationId": "manual_override_for_session_api_v1_attendance__session_id__override_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualOverrideIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceRecordOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/sessions/{session_id}/roster": {
+      "get": {
+        "tags": [
+          "attendance"
+        ],
+        "summary": "Get Session Roster",
+        "description": "Retrieve full classroom verification roster for a session.",
+        "operationId": "get_session_roster_api_v1_attendance_sessions__session_id__roster_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionRosterOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/records/me": {
+      "get": {
+        "tags": [
+          "attendance"
+        ],
+        "summary": "Get My Attendance Records",
+        "description": "Retrieve the student's recent attendance records.",
+        "operationId": "get_my_attendance_records_api_v1_attendance_records_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AttendanceRecordOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get My Attendance Records Api V1 Attendance Records Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/canteen/menu": {
+      "get": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Get Menu",
+        "description": "Retrieve food court menu items with optional category filtering.",
+        "operationId": "get_menu_api_v1_canteen_menu_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "available_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Available Only"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CanteenMenuItemOut"
+                  },
+                  "title": "Response Get Menu Api V1 Canteen Menu Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Create Menu Item",
+        "description": "Canteen staff or admin adds an item to the food court menu.",
+        "operationId": "create_menu_item_api_v1_canteen_menu_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMenuItemIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanteenMenuItemOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/canteen/menu/{item_id}": {
+      "patch": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Update Menu Item",
+        "description": "Canteen staff updates item availability, price, or description.",
+        "operationId": "update_menu_item_api_v1_canteen_menu__item_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMenuItemIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanteenMenuItemOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Delete Menu Item",
+        "description": "Canteen staff removes an item from the menu registry.",
+        "operationId": "delete_menu_item_api_v1_canteen_menu__item_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/canteen/wallet/me": {
+      "get": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Get My Wallet",
+        "description": "Retrieve the student's prepaid campus wallet balance and ledger history.",
+        "operationId": "get_my_wallet_api_v1_canteen_wallet_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletAccountOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/canteen/wallet/topup": {
+      "post": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Topup Wallet",
+        "description": "Top up student campus wallet via UPI or Card.",
+        "operationId": "topup_wallet_api_v1_canteen_wallet_topup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopupWalletIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletAccountOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/canteen/orders": {
+      "post": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Place Order",
+        "description": "Student places a food pre-order, deducting from campus wallet or card.",
+        "operationId": "place_order_api_v1_canteen_orders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanteenOrderOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/canteen/orders/me": {
+      "get": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Get My Orders",
+        "description": "List all food orders placed by the current student.",
+        "operationId": "get_my_orders_api_v1_canteen_orders_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CanteenOrderOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get My Orders Api V1 Canteen Orders Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/canteen/orders/queue": {
+      "get": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Get Staff Order Queue",
+        "description": "Canteen staff or admin views today's kitchen preparation and pickup queue.",
+        "operationId": "get_staff_order_queue_api_v1_canteen_orders_queue_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CanteenOrderOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get Staff Order Queue Api V1 Canteen Orders Queue Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/canteen/orders/{order_id}/status": {
+      "patch": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Update Order Status",
+        "description": "Canteen staff updates order lifecycle state (new -> preparing -> ready -> completed).",
+        "operationId": "update_order_status_api_v1_canteen_orders__order_id__status_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Order Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrderStatusIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanteenOrderOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/canteen/orders/verify-qr": {
+      "post": {
+        "tags": [
+          "canteen"
+        ],
+        "summary": "Verify Qr",
+        "description": "Canteen staff scans student's digital QR code to verify and release meal.",
+        "operationId": "verify_qr_api_v1_canteen_orders_verify_qr_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyQrIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanteenOrderOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "List Notifications",
+        "description": "Return all notifications for the authenticated user (newest first).",
+        "operationId": "list_notifications_api_v1_notifications_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "unreadOnly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Unreadonly"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationOut"
+                  },
+                  "title": "Response List Notifications Api V1 Notifications Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{notification_id}/read": {
+      "patch": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark Notification Read",
+        "description": "Mark a specific notification as read.",
+        "operationId": "mark_notification_read_api_v1_notifications__notification_id__read_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark All Notifications Read",
+        "description": "Mark all unread notifications for the current user as read.",
+        "operationId": "mark_all_notifications_read_api_v1_notifications_read_all_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Mark All Notifications Read Api V1 Notifications Read All Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/transport/routes": {
+      "get": {
+        "tags": [
+          "transport"
+        ],
+        "summary": "List Routes",
+        "description": "Return all bus routes with their current telemetry.",
+        "operationId": "list_routes_api_v1_transport_routes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BusRouteOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Routes Api V1 Transport Routes Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/transport/routes/{route_id}": {
+      "get": {
+        "tags": [
+          "transport"
+        ],
+        "summary": "Get Route",
+        "description": "Return a single bus route by ID.",
+        "operationId": "get_route_api_v1_transport_routes__route_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "route_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Route Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusRouteOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transport/stream": {
+      "get": {
+        "tags": [
+          "transport"
+        ],
+        "summary": "Transport Sse Stream",
+        "description": "Server-Sent Events stream: pushes live telemetry every `interval` seconds.\n\nEach event is a JSON object with all active bus routes. The stream runs until\nthe client disconnects or max_events is reached.\nPass max_events=1 and interval=0 for a quick test probe.",
+        "operationId": "transport_sse_stream_api_v1_transport_stream_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "title": "Interval"
+            }
+          },
+          {
+            "name": "max_events",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 60,
+              "title": "Max Events"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/analytics": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get Analytics",
+        "description": "Return full admin analytics snapshot: KPIs, departmental attendance,\ngrievance breakdown, and recent audit trail. Admin role required.",
+        "operationId": "get_analytics_api_v1_admin_analytics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAnalyticsOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/audit-logs": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Audit Logs",
+        "description": "Return paginated immutable audit trail. Admin role required.",
+        "operationId": "list_audit_logs_api_v1_admin_audit_logs_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditLogOut"
+                  },
+                  "title": "Response List Audit Logs Api V1 Admin Audit Logs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ml/early-warning/me": {
+      "get": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Get My Early Warning",
+        "description": "Retrieve the authenticated student's ML early warning assessment.",
+        "operationId": "get_my_early_warning_api_v1_ml_early_warning_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EarlyWarningPredictionOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ml/early-warning/students/{student_id}": {
+      "get": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Get Student Early Warning",
+        "description": "Retrieve a specific student's ML early warning assessment.\nStudents can only view their own profile; faculty and admin can view any student.",
+        "operationId": "get_student_early_warning_api_v1_ml_early_warning_students__student_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EarlyWarningPredictionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ml/early-warning/evaluate/{student_id}": {
+      "post": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Evaluate Student",
+        "description": "Trigger an on-demand ML evaluation and save the prediction. Faculty/Admin only.",
+        "operationId": "evaluate_student_api_v1_ml_early_warning_evaluate__student_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EarlyWarningPredictionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ml/early-warning/batch-evaluate": {
+      "post": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Batch Evaluate Students",
+        "description": "Batch re-evaluate students across a department or the whole campus. Faculty/Admin only.",
+        "operationId": "batch_evaluate_students_api_v1_ml_early_warning_batch_evaluate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "department",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Department code, e.g. CSE",
+              "title": "Department"
+            },
+            "description": "Department code, e.g. CSE"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchEvaluationResultOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ml/early-warning/at-risk": {
+      "get": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Get At Risk Students",
+        "description": "Retrieve students flagged by the ML early warning engine. Faculty/Admin only.",
+        "operationId": "get_at_risk_students_api_v1_ml_early_warning_at_risk_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "min_risk_level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Minimum risk level: Low, Medium, High, or Critical",
+              "default": "Medium",
+              "title": "Min Risk Level"
+            },
+            "description": "Minimum risk level: Low, Medium, High, or Critical"
+          },
+          {
+            "name": "department",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Department code, e.g. CSE",
+              "title": "Department"
+            },
+            "description": "Department code, e.g. CSE"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AtRiskStudentSummaryOut"
+                  },
+                  "title": "Response Get At Risk Students Api V1 Ml Early Warning At Risk Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ml/interventions": {
+      "post": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Create Intervention",
+        "description": "Create an academic or wellbeing support intervention for an at-risk student. Faculty/Admin only.",
+        "operationId": "create_intervention_api_v1_ml_interventions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInterventionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterventionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "List Interventions",
+        "description": "List academic interventions. Students only see their own interventions.",
+        "operationId": "list_interventions_api_v1_ml_interventions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by student ID",
+              "title": "Student Id"
+            },
+            "description": "Filter by student ID"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status: Pending, In Progress, Resolved",
+              "title": "Status"
+            },
+            "description": "Filter by status: Pending, In Progress, Resolved"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InterventionOut"
+                  },
+                  "title": "Response List Interventions Api V1 Ml Interventions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ml/interventions/{intervention_id}": {
+      "patch": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Update Intervention",
+        "description": "Update intervention status and notes. Faculty/Admin only.",
+        "operationId": "update_intervention_api_v1_ml_interventions__intervention_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "intervention_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Intervention Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInterventionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterventionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ml/recommendations/me": {
+      "get": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Get My Recommendations",
+        "description": "Retrieve personalized learning recommendations for the current student.",
+        "operationId": "get_my_recommendations_api_v1_ml_recommendations_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecommendationOut"
+                  },
+                  "type": "array",
+                  "title": "Response Get My Recommendations Api V1 Ml Recommendations Me Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ml/recommendations/students/{student_id}": {
+      "get": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Get Student Recommendations",
+        "description": "Retrieve personalized learning recommendations for a student. Faculty/Admin or self.",
+        "operationId": "get_student_recommendations_api_v1_ml_recommendations_students__student_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecommendationOut"
+                  },
+                  "title": "Response Get Student Recommendations Api V1 Ml Recommendations Students  Student Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ml/recommendations/generate/{student_id}": {
+      "post": {
+        "tags": [
+          "ml-early-warning"
+        ],
+        "summary": "Generate Recommendations",
+        "description": "Automatically generate learning recommendations based on student academic signals. Faculty/Admin only.",
+        "operationId": "generate_recommendations_api_v1_ml_recommendations_generate__student_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "student_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecommendationOut"
+                  },
+                  "title": "Response Generate Recommendations Api V1 Ml Recommendations Generate  Student Id  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AcademicFeatures": {
+        "properties": {
+          "attendancePercent": {
+            "type": "number",
+            "title": "Attendancepercent",
+            "description": "Overall attendance percentage across enrolled courses"
+          },
+          "attendanceTrend30D": {
+            "type": "number",
+            "title": "Attendancetrend30D",
+            "description": "Percentage point difference in 30-day attendance trend"
+          },
+          "marksAverage": {
+            "type": "number",
+            "title": "Marksaverage",
+            "description": "Average percentage marks across assessments and exams"
+          },
+          "marksTrend": {
+            "type": "number",
+            "title": "Markstrend",
+            "description": "Percentage point difference between recent vs older assessment scores"
+          },
+          "assignmentSubmissionRate": {
+            "type": "number",
+            "title": "Assignmentsubmissionrate",
+            "description": "Ratio of submitted coursework vs total course assessments (0.0 - 1.0)"
+          },
+          "recentActivityCount": {
+            "type": "integer",
+            "title": "Recentactivitycount",
+            "description": "Interactions and campus activities logged in past 14 days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attendancePercent",
+          "attendanceTrend30D",
+          "marksAverage",
+          "marksTrend",
+          "assignmentSubmissionRate",
+          "recentActivityCount"
+        ],
+        "title": "AcademicFeatures",
+        "description": "Academic signals used exclusively for early warning risk prediction.\nStrictly excludes demographic or protected attributes (ML Ethics compliance)."
+      },
+      "ActionExecuted": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "ticketNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticketnumber"
+          },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requestid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "ActionExecuted"
+      },
+      "AdminAnalyticsOut": {
+        "properties": {
+          "kpis": {
+            "$ref": "#/components/schemas/AnalyticsKpiOut"
+          },
+          "departmentalAttendance": {
+            "items": {
+              "$ref": "#/components/schemas/DeptAttendanceOut"
+            },
+            "type": "array",
+            "title": "Departmentalattendance"
+          },
+          "grievanceBreakdown": {
+            "items": {
+              "$ref": "#/components/schemas/GrievanceCategoryOut"
+            },
+            "type": "array",
+            "title": "Grievancebreakdown"
+          },
+          "recentAuditLogs": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLogOut"
+            },
+            "type": "array",
+            "title": "Recentauditlogs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kpis",
+          "departmentalAttendance",
+          "grievanceBreakdown",
+          "recentAuditLogs"
+        ],
+        "title": "AdminAnalyticsOut",
+        "description": "Full admin analytics response payload."
+      },
+      "AnalyticsKpiOut": {
+        "properties": {
+          "campusOverallAttendancePct": {
+            "type": "number",
+            "title": "Campusoverallattendancepct"
+          },
+          "canteenDailyOrderCount": {
+            "type": "integer",
+            "title": "Canteendailyordercount"
+          },
+          "grievanceSlaCompliancePct": {
+            "type": "number",
+            "title": "Grievanceslacompliancepct"
+          },
+          "certificatesIssued": {
+            "type": "integer",
+            "title": "Certificatesissued"
+          },
+          "activeStudents": {
+            "type": "integer",
+            "title": "Activestudents"
+          },
+          "openTickets": {
+            "type": "integer",
+            "title": "Opentickets"
+          },
+          "avgResolutionHours": {
+            "type": "number",
+            "title": "Avgresolutionhours"
+          }
+        },
+        "type": "object",
+        "required": [
+          "campusOverallAttendancePct",
+          "canteenDailyOrderCount",
+          "grievanceSlaCompliancePct",
+          "certificatesIssued",
+          "activeStudents",
+          "openTickets",
+          "avgResolutionHours"
+        ],
+        "title": "AnalyticsKpiOut",
+        "description": "Top-level KPI card data for the admin dashboard."
+      },
+      "ApproveRejectIn": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "pattern": "^(approve|reject)$",
+            "title": "Action"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "ApproveRejectIn"
+      },
+      "AtRiskStudentSummaryOut": {
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Studentid"
+          },
+          "studentName": {
+            "type": "string",
+            "title": "Studentname"
+          },
+          "rollNumber": {
+            "type": "string",
+            "title": "Rollnumber"
+          },
+          "department": {
+            "type": "string",
+            "title": "Department"
+          },
+          "semester": {
+            "type": "integer",
+            "title": "Semester"
+          },
+          "riskLevel": {
+            "type": "string",
+            "title": "Risklevel"
+          },
+          "probability": {
+            "type": "number",
+            "title": "Probability"
+          },
+          "topRiskFactor": {
+            "type": "string",
+            "title": "Topriskfactor"
+          },
+          "hasActiveIntervention": {
+            "type": "boolean",
+            "title": "Hasactiveintervention"
+          },
+          "evaluatedAt": {
+            "title": "Evaluatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "studentId",
+          "studentName",
+          "rollNumber",
+          "department",
+          "semester",
+          "riskLevel",
+          "probability",
+          "topRiskFactor",
+          "hasActiveIntervention",
+          "evaluatedAt"
+        ],
+        "title": "AtRiskStudentSummaryOut",
+        "description": "Summary card for faculty/admin monitoring dashboard."
+      },
+      "AttendanceRecordOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "studentId": {
+            "type": "string",
+            "title": "Studentid"
+          },
+          "studentName": {
+            "type": "string",
+            "title": "Studentname"
+          },
+          "rollNumber": {
+            "type": "string",
+            "title": "Rollnumber"
+          },
+          "courseId": {
+            "type": "string",
+            "title": "Courseid"
+          },
+          "courseName": {
+            "type": "string",
+            "title": "Coursename"
+          },
+          "facultyId": {
+            "type": "string",
+            "title": "Facultyid"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "present",
+              "absent",
+              "failed",
+              "manual_override"
+            ],
+            "title": "Status"
+          },
+          "verificationMethod": {
+            "type": "string",
+            "enum": [
+              "geo_face_liveness",
+              "manual_faculty"
+            ],
+            "title": "Verificationmethod"
+          },
+          "locationVerified": {
+            "type": "boolean",
+            "title": "Locationverified"
+          },
+          "coordinates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CoordinatesOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "faceConfidence": {
+            "type": "number",
+            "title": "Faceconfidence"
+          },
+          "livenessVerified": {
+            "type": "boolean",
+            "title": "Livenessverified"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "correctedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correctedby"
+          },
+          "correctedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correctedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "studentId",
+          "studentName",
+          "rollNumber",
+          "courseId",
+          "courseName",
+          "facultyId",
+          "date",
+          "time",
+          "status",
+          "verificationMethod",
+          "locationVerified",
+          "faceConfidence",
+          "livenessVerified"
+        ],
+        "title": "AttendanceRecordOut",
+        "description": "Detailed verification record for a class attendance event."
+      },
+      "AttendanceSessionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "courseId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Courseid"
+          },
+          "courseCode": {
+            "type": "string",
+            "title": "Coursecode"
+          },
+          "courseName": {
+            "type": "string",
+            "title": "Coursename"
+          },
+          "facultyId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Facultyid"
+          },
+          "facultyName": {
+            "type": "string",
+            "title": "Facultyname"
+          },
+          "roomId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Roomid"
+          },
+          "roomName": {
+            "type": "string",
+            "title": "Roomname"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "opensAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Opensat"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expiresat"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "recordsCount": {
+            "type": "integer",
+            "title": "Recordscount",
+            "default": 0
+          },
+          "presentCount": {
+            "type": "integer",
+            "title": "Presentcount",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "courseId",
+          "courseCode",
+          "courseName",
+          "facultyId",
+          "facultyName",
+          "roomId",
+          "roomName",
+          "code",
+          "opensAt",
+          "expiresAt",
+          "status"
+        ],
+        "title": "AttendanceSessionOut",
+        "description": "Attendance session details."
+      },
+      "AttendanceSummaryOut": {
+        "properties": {
+          "overallPercentage": {
+            "type": "number",
+            "title": "Overallpercentage"
+          },
+          "totalClasses": {
+            "type": "integer",
+            "title": "Totalclasses"
+          },
+          "attendedClasses": {
+            "type": "integer",
+            "title": "Attendedclasses"
+          },
+          "atRiskCount": {
+            "type": "integer",
+            "title": "Atriskcount"
+          },
+          "minimumRequired": {
+            "type": "number",
+            "title": "Minimumrequired",
+            "default": 75.0
+          },
+          "courses": {
+            "items": {
+              "$ref": "#/components/schemas/CourseScheduleOut"
+            },
+            "type": "array",
+            "title": "Courses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "overallPercentage",
+          "totalClasses",
+          "attendedClasses",
+          "atRiskCount",
+          "courses"
+        ],
+        "title": "AttendanceSummaryOut",
+        "description": "Overall attendance metrics and warnings."
+      },
+      "AuditLogOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "performedBy": {
+            "type": "string",
+            "title": "Performedby"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "targetEntity": {
+            "type": "string",
+            "title": "Targetentity"
+          },
+          "entityId": {
+            "type": "string",
+            "title": "Entityid"
+          },
+          "details": {
+            "type": "string",
+            "title": "Details"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "ipAddress": {
+            "type": "string",
+            "title": "Ipaddress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "performedBy",
+          "role",
+          "targetEntity",
+          "entityId",
+          "details",
+          "timestamp",
+          "ipAddress"
+        ],
+        "title": "AuditLogOut",
+        "description": "Audit log entry matching frontend AuditLog contract."
+      },
+      "BatchEvaluationResultOut": {
+        "properties": {
+          "evaluatedCount": {
+            "type": "integer",
+            "title": "Evaluatedcount"
+          },
+          "atRiskCount": {
+            "type": "integer",
+            "title": "Atriskcount"
+          },
+          "criticalCount": {
+            "type": "integer",
+            "title": "Criticalcount"
+          },
+          "highCount": {
+            "type": "integer",
+            "title": "Highcount"
+          },
+          "mediumCount": {
+            "type": "integer",
+            "title": "Mediumcount"
+          },
+          "lowCount": {
+            "type": "integer",
+            "title": "Lowcount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evaluatedCount",
+          "atRiskCount",
+          "criticalCount",
+          "highCount",
+          "mediumCount",
+          "lowCount"
+        ],
+        "title": "BatchEvaluationResultOut",
+        "description": "Result of batch running the early warning model over student cohort."
+      },
+      "BusCoordinatesOut": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lng": {
+            "type": "number",
+            "title": "Lng"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lng"
+        ],
+        "title": "BusCoordinatesOut",
+        "description": "GPS coordinates."
+      },
+      "BusRouteOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "routeNumber": {
+            "type": "string",
+            "title": "Routenumber"
+          },
+          "routeName": {
+            "type": "string",
+            "title": "Routename"
+          },
+          "driverName": {
+            "type": "string",
+            "title": "Drivername"
+          },
+          "driverPhone": {
+            "type": "string",
+            "title": "Driverphone"
+          },
+          "vehicleNumber": {
+            "type": "string",
+            "title": "Vehiclenumber"
+          },
+          "currentStop": {
+            "type": "string",
+            "title": "Currentstop"
+          },
+          "nextStop": {
+            "type": "string",
+            "title": "Nextstop"
+          },
+          "etaMinutes": {
+            "type": "integer",
+            "title": "Etaminutes"
+          },
+          "capacity": {
+            "type": "integer",
+            "title": "Capacity"
+          },
+          "occupiedSeats": {
+            "type": "integer",
+            "title": "Occupiedseats"
+          },
+          "speedKmH": {
+            "type": "number",
+            "title": "Speedkmh"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/BusStopOut"
+            },
+            "type": "array",
+            "title": "Stops"
+          },
+          "coordinates": {
+            "$ref": "#/components/schemas/BusCoordinatesOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "routeNumber",
+          "routeName",
+          "driverName",
+          "driverPhone",
+          "vehicleNumber",
+          "currentStop",
+          "nextStop",
+          "etaMinutes",
+          "capacity",
+          "occupiedSeats",
+          "speedKmH",
+          "stops",
+          "coordinates"
+        ],
+        "title": "BusRouteOut",
+        "description": "Real-time transit route matching frontend BusRoute contract."
+      },
+      "BusStopOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "time"
+        ],
+        "title": "BusStopOut",
+        "description": "Single stop on a transit route."
+      },
+      "CanteenMenuItemOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "price": {
+            "type": "number",
+            "title": "Price"
+          },
+          "prepTimeMinutes": {
+            "type": "integer",
+            "title": "Preptimeminutes"
+          },
+          "isVeg": {
+            "type": "boolean",
+            "title": "Isveg"
+          },
+          "calories": {
+            "type": "integer",
+            "title": "Calories"
+          },
+          "image": {
+            "type": "string",
+            "title": "Image"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "rating": {
+            "type": "number",
+            "title": "Rating"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "category",
+          "price",
+          "prepTimeMinutes",
+          "isVeg",
+          "calories",
+          "image",
+          "available",
+          "description",
+          "rating"
+        ],
+        "title": "CanteenMenuItemOut",
+        "description": "Food court menu item matching frontend CanteenMenuItem contract."
+      },
+      "CanteenOrderItemIn": {
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "title": "Itemid"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Quantity",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "itemId"
+        ],
+        "title": "CanteenOrderItemIn",
+        "description": "Single item line in a pre-order request."
+      },
+      "CanteenOrderItemOut": {
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "title": "Itemid"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "price": {
+            "type": "number",
+            "title": "Price"
+          },
+          "quantity": {
+            "type": "integer",
+            "title": "Quantity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "itemId",
+          "name",
+          "price",
+          "quantity"
+        ],
+        "title": "CanteenOrderItemOut",
+        "description": "Item detail in an order response."
+      },
+      "CanteenOrderOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tokenNumber": {
+            "type": "string",
+            "title": "Tokennumber"
+          },
+          "studentId": {
+            "type": "string",
+            "title": "Studentid"
+          },
+          "studentName": {
+            "type": "string",
+            "title": "Studentname"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CanteenOrderItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "totalAmount": {
+            "type": "number",
+            "title": "Totalamount"
+          },
+          "pickupTime": {
+            "type": "string",
+            "title": "Pickuptime"
+          },
+          "orderTime": {
+            "type": "string",
+            "title": "Ordertime"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "preparing",
+              "ready",
+              "completed",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": [
+              "paid",
+              "pending"
+            ],
+            "title": "Paymentstatus"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "title": "Paymentmethod"
+          },
+          "qrCodeValue": {
+            "type": "string",
+            "title": "Qrcodevalue"
+          },
+          "counterNumber": {
+            "type": "integer",
+            "title": "Counternumber",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tokenNumber",
+          "studentId",
+          "studentName",
+          "items",
+          "totalAmount",
+          "pickupTime",
+          "orderTime",
+          "status",
+          "paymentStatus",
+          "paymentMethod",
+          "qrCodeValue"
+        ],
+        "title": "CanteenOrderOut",
+        "description": "Order response matching frontend CanteenOrder interface."
+      },
+      "CertificateRequestOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "studentId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Studentid"
+          },
+          "certificateType": {
+            "type": "string",
+            "title": "Certificatetype"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          },
+          "academicYear": {
+            "type": "string",
+            "title": "Academicyear"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "eligibilityChecks": {
+            "items": {
+              "$ref": "#/components/schemas/EligibilityDetail"
+            },
+            "type": "array",
+            "title": "Eligibilitychecks"
+          },
+          "verificationCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verificationcode"
+          },
+          "documentHash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documenthash"
+          },
+          "approvedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approvedat"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "studentId",
+          "certificateType",
+          "purpose",
+          "academicYear",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "CertificateRequestOut"
+      },
+      "ChatMessageIn": {
+        "properties": {
+          "sender": {
+            "type": "string",
+            "title": "Sender"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sender",
+          "text"
+        ],
+        "title": "ChatMessageIn",
+        "description": "Single entry in conversation history sent by the client."
+      },
+      "ChatRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageIn"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "persona": {
+            "type": "string",
+            "title": "Persona",
+            "description": "One of: default, cool_buddy, wise_prof, sparky, comedic",
+            "default": "default"
+          },
+          "conversationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversationid",
+            "description": "Pass an existing conversation ID to continue a persisted thread."
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ChatRequest"
+      },
+      "ChatResponse": {
+        "properties": {
+          "reply": {
+            "type": "string",
+            "title": "Reply"
+          },
+          "toolCall": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolcall"
+          },
+          "actionExecuted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionExecuted"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conversationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversationid"
+          },
+          "modelUsed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelused"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reply"
+        ],
+        "title": "ChatResponse"
+      },
+      "ClassifyTicketRequest": {
+        "properties": {
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subject",
+          "description"
+        ],
+        "title": "ClassifyTicketRequest",
+        "description": "Payload to classify a student ticket with AI/heuristic models."
+      },
+      "ClassifyTicketResponse": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "Low",
+              "Medium",
+              "High",
+              "Urgent"
+            ],
+            "title": "Priority"
+          },
+          "sentiment": {
+            "type": "string",
+            "title": "Sentiment"
+          },
+          "assignedDepartment": {
+            "type": "string",
+            "title": "Assigneddepartment"
+          },
+          "slaHours": {
+            "type": "integer",
+            "title": "Slahours"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "priority",
+          "sentiment",
+          "assignedDepartment",
+          "slaHours",
+          "summary"
+        ],
+        "title": "ClassifyTicketResponse",
+        "description": "Classification result with SLA and department routing."
+      },
+      "ConversationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "createdAt": {
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "ConversationOut"
+      },
+      "CoordinatesOut": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lng": {
+            "type": "number",
+            "title": "Lng"
+          },
+          "accuracy": {
+            "type": "number",
+            "title": "Accuracy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lng",
+          "accuracy"
+        ],
+        "title": "CoordinatesOut"
+      },
+      "CourseScheduleOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "faculty": {
+            "type": "string",
+            "title": "Faculty"
+          },
+          "credits": {
+            "type": "integer",
+            "title": "Credits"
+          },
+          "room": {
+            "type": "string",
+            "title": "Room"
+          },
+          "day": {
+            "type": "string",
+            "title": "Day"
+          },
+          "startTime": {
+            "type": "string",
+            "title": "Starttime"
+          },
+          "endTime": {
+            "type": "string",
+            "title": "Endtime"
+          },
+          "totalClasses": {
+            "type": "integer",
+            "title": "Totalclasses"
+          },
+          "attendedClasses": {
+            "type": "integer",
+            "title": "Attendedclasses"
+          },
+          "attendancePercent": {
+            "type": "number",
+            "title": "Attendancepercent"
+          },
+          "syllabusCovered": {
+            "type": "integer",
+            "title": "Syllabuscovered"
+          },
+          "isCurrentClass": {
+            "type": "boolean",
+            "title": "Iscurrentclass",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "faculty",
+          "credits",
+          "room",
+          "day",
+          "startTime",
+          "endTime",
+          "totalClasses",
+          "attendedClasses",
+          "attendancePercent",
+          "syllabusCovered"
+        ],
+        "title": "CourseScheduleOut",
+        "description": "Course schedule card with attendance stats."
+      },
+      "CreateInterventionIn": {
+        "properties": {
+          "predictionId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Predictionid"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 5,
+            "title": "Notes",
+            "description": "Intervention action plan and notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "predictionId",
+          "notes"
+        ],
+        "title": "CreateInterventionIn",
+        "description": "Faculty or counselor request to create an academic/wellbeing intervention."
+      },
+      "CreateMenuItemIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "price": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Price"
+          },
+          "prepTimeMinutes": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Preptimeminutes",
+            "default": 10
+          },
+          "isVeg": {
+            "type": "boolean",
+            "title": "Isveg",
+            "default": true
+          },
+          "calories": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Calories",
+            "default": 250
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "default": true
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "price"
+        ],
+        "title": "CreateMenuItemIn",
+        "description": "Canteen staff creates a new menu item."
+      },
+      "CreateOrderIn": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CanteenOrderItemIn"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pickupTime": {
+            "type": "string",
+            "title": "Pickuptime"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": [
+              "UPI",
+              "Card",
+              "CampusWallet",
+              "wallet"
+            ],
+            "title": "Paymentmethod",
+            "default": "CampusWallet"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pickupTime"
+        ],
+        "title": "CreateOrderIn",
+        "description": "Student pre-order request."
+      },
+      "CreateSessionIn": {
+        "properties": {
+          "courseId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Courseid"
+          },
+          "courseCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coursecode"
+          },
+          "roomId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roomid"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Durationminutes",
+            "default": 15
+          }
+        },
+        "type": "object",
+        "title": "CreateSessionIn",
+        "description": "Faculty request to create an attendance session window."
+      },
+      "CreateTicketRequest": {
+        "properties": {
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Low",
+                  "Medium",
+                  "High",
+                  "Urgent"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subject",
+          "description"
+        ],
+        "title": "CreateTicketRequest",
+        "description": "Payload to create a new helpdesk ticket."
+      },
+      "DeptAttendanceOut": {
+        "properties": {
+          "department": {
+            "type": "string",
+            "title": "Department"
+          },
+          "attendancePct": {
+            "type": "number",
+            "title": "Attendancepct"
+          },
+          "studentCount": {
+            "type": "integer",
+            "title": "Studentcount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "department",
+          "attendancePct",
+          "studentCount"
+        ],
+        "title": "DeptAttendanceOut",
+        "description": "Per-department attendance benchmark row."
+      },
+      "DevLoginRequest": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "student",
+              "faculty",
+              "admin",
+              "canteen",
+              "parent"
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "DevLoginRequest",
+        "description": "Dev-mode instant login by role."
+      },
+      "EarlyWarningPredictionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "studentId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Studentid"
+          },
+          "studentName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Studentname"
+          },
+          "rollNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollnumber"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "modelVersion": {
+            "type": "string",
+            "title": "Modelversion"
+          },
+          "riskLevel": {
+            "type": "string",
+            "title": "Risklevel",
+            "description": "Low, Medium, High, or Critical"
+          },
+          "probability": {
+            "type": "number",
+            "title": "Probability",
+            "description": "Risk probability score between 0.0 and 1.0"
+          },
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/RiskFactorOut"
+            },
+            "type": "array",
+            "title": "Factors"
+          },
+          "academicSignals": {
+            "$ref": "#/components/schemas/AcademicFeatures"
+          },
+          "isSupportSignalOnly": {
+            "type": "boolean",
+            "title": "Issupportsignalonly",
+            "description": "ML Ethics: marks this output as a support signal, never an automated institutional decision.",
+            "default": true
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "description": "Institutional ethics disclaimer",
+            "default": "Support signal, not an automated decision. Human faculty/counselor review is required before taking any institutional action."
+          },
+          "createdAt": {
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "studentId",
+          "modelVersion",
+          "riskLevel",
+          "probability",
+          "academicSignals",
+          "createdAt"
+        ],
+        "title": "EarlyWarningPredictionOut",
+        "description": "Comprehensive ML risk assessment for a student."
+      },
+      "EligibilityDetail": {
+        "properties": {
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule",
+          "passed",
+          "detail"
+        ],
+        "title": "EligibilityDetail"
+      },
+      "ExamRecordOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "courseCode": {
+            "type": "string",
+            "title": "Coursecode"
+          },
+          "courseName": {
+            "type": "string",
+            "title": "Coursename"
+          },
+          "examType": {
+            "type": "string",
+            "title": "Examtype"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "hallNumber": {
+            "type": "string",
+            "title": "Hallnumber"
+          },
+          "seatNumber": {
+            "type": "string",
+            "title": "Seatnumber"
+          },
+          "maxMarks": {
+            "type": "integer",
+            "title": "Maxmarks"
+          },
+          "obtainedMarks": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obtainedmarks"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "Upcoming"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "courseCode",
+          "courseName",
+          "examType",
+          "date",
+          "time",
+          "hallNumber",
+          "seatNumber",
+          "maxMarks"
+        ],
+        "title": "ExamRecordOut",
+        "description": "Exam seating and schedule record."
+      },
+      "FeeInvoiceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "invoiceNumber": {
+            "type": "string",
+            "title": "Invoicenumber"
+          },
+          "semester": {
+            "type": "string",
+            "title": "Semester"
+          },
+          "academicYear": {
+            "type": "string",
+            "title": "Academicyear"
+          },
+          "dueDate": {
+            "type": "string",
+            "title": "Duedate"
+          },
+          "tuitionFee": {
+            "type": "number",
+            "title": "Tuitionfee"
+          },
+          "developmentFee": {
+            "type": "number",
+            "title": "Developmentfee"
+          },
+          "examFee": {
+            "type": "number",
+            "title": "Examfee"
+          },
+          "hostelFee": {
+            "type": "number",
+            "title": "Hostelfee"
+          },
+          "totalAmount": {
+            "type": "number",
+            "title": "Totalamount"
+          },
+          "paidAmount": {
+            "type": "number",
+            "title": "Paidamount"
+          },
+          "outstandingAmount": {
+            "type": "number",
+            "title": "Outstandingamount"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "paid",
+              "partial",
+              "due",
+              "overdue"
+            ],
+            "title": "Status"
+          },
+          "paymentDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paymentdate"
+          },
+          "transactionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transactionid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "invoiceNumber",
+          "semester",
+          "academicYear",
+          "dueDate",
+          "tuitionFee",
+          "developmentFee",
+          "examFee",
+          "hostelFee",
+          "totalAmount",
+          "paidAmount",
+          "outstandingAmount",
+          "status"
+        ],
+        "title": "FeeInvoiceOut",
+        "description": "Fee invoice response with computed status and breakdown matching frontend."
+      },
+      "GrievanceCategoryOut": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "sharePct": {
+            "type": "number",
+            "title": "Sharepct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "count",
+          "sharePct"
+        ],
+        "title": "GrievanceCategoryOut",
+        "description": "Helpdesk ticket category count."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HelpdeskTicketOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "ticketNumber": {
+            "type": "string",
+            "title": "Ticketnumber"
+          },
+          "studentId": {
+            "type": "string",
+            "title": "Studentid"
+          },
+          "studentName": {
+            "type": "string",
+            "title": "Studentname"
+          },
+          "rollNumber": {
+            "type": "string",
+            "title": "Rollnumber"
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "aiSentiment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aisentiment"
+          },
+          "assignedDepartment": {
+            "type": "string",
+            "title": "Assigneddepartment"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "createdAt": {
+            "type": "string",
+            "title": "Createdat"
+          },
+          "slaDeadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sladeadline"
+          },
+          "resolutionNotes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolutionnotes"
+          },
+          "escalationCount": {
+            "type": "integer",
+            "title": "Escalationcount",
+            "default": 0
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/TicketMessageOut"
+            },
+            "type": "array",
+            "title": "Messages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "ticketNumber",
+          "studentId",
+          "studentName",
+          "rollNumber",
+          "subject",
+          "description",
+          "category",
+          "priority",
+          "assignedDepartment",
+          "status",
+          "createdAt"
+        ],
+        "title": "HelpdeskTicketOut",
+        "description": "Helpdesk ticket response matching frontend HelpdeskTicket interface."
+      },
+      "InitiatePaymentRequest": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "description": "Amount in rupees to pay"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "InitiatePaymentRequest",
+        "description": "Payment initiation request with amount in rupees."
+      },
+      "InitiatePaymentResponse": {
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "title": "Orderid"
+          },
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "default": "INR"
+          },
+          "keyId": {
+            "type": "string",
+            "title": "Keyid"
+          },
+          "invoiceId": {
+            "type": "string",
+            "title": "Invoiceid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "orderId",
+          "amount",
+          "keyId",
+          "invoiceId"
+        ],
+        "title": "InitiatePaymentResponse",
+        "description": "Checkout payload for Razorpay / mock gateway."
+      },
+      "InterventionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "predictionId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Predictionid"
+          },
+          "studentId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Studentid"
+          },
+          "studentName": {
+            "type": "string",
+            "title": "Studentname"
+          },
+          "rollNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollnumber"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes"
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Ownerid"
+          },
+          "ownerName": {
+            "type": "string",
+            "title": "Ownername"
+          },
+          "riskLevel": {
+            "type": "string",
+            "title": "Risklevel"
+          },
+          "createdAt": {
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "predictionId",
+          "studentId",
+          "studentName",
+          "status",
+          "notes",
+          "ownerId",
+          "ownerName",
+          "riskLevel",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "InterventionOut",
+        "description": "Details of an academic support intervention."
+      },
+      "LearningResourceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "tags": {
+            "type": "string",
+            "title": "Tags"
+          },
+          "difficulty": {
+            "type": "string",
+            "title": "Difficulty"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "url",
+          "tags",
+          "difficulty"
+        ],
+        "title": "LearningResourceOut",
+        "description": "Curated learning resource for academic remediation."
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "description": "Email and password login request."
+      },
+      "ManualOverrideIn": {
+        "properties": {
+          "studentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Studentid"
+          },
+          "rollNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollnumber"
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionid"
+          },
+          "courseCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coursecode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "present",
+              "manual_override",
+              "absent"
+            ],
+            "title": "Status",
+            "default": "manual_override"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "ManualOverrideIn",
+        "description": "Faculty / Admin manual attendance override."
+      },
+      "MarkAttendanceIn": {
+        "properties": {
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionid"
+          },
+          "sessionCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessioncode"
+          },
+          "courseId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Courseid"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy",
+            "default": 5.0
+          },
+          "faceConfidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Faceconfidence",
+            "default": 98.6
+          },
+          "livenessVerified": {
+            "type": "boolean",
+            "title": "Livenessverified",
+            "default": true
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "title": "MarkAttendanceIn",
+        "description": "Student request to verify and mark attendance."
+      },
+      "MarkAttendanceResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "record": {
+            "$ref": "#/components/schemas/AttendanceRecordOut"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "geofenceDistanceM": {
+            "type": "number",
+            "title": "Geofencedistancem"
+          },
+          "geofencePassed": {
+            "type": "boolean",
+            "title": "Geofencepassed"
+          },
+          "biometricPassed": {
+            "type": "boolean",
+            "title": "Biometricpassed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "record",
+          "message",
+          "geofenceDistanceM",
+          "geofencePassed",
+          "biometricPassed"
+        ],
+        "title": "MarkAttendanceResponse",
+        "description": "Response returned upon marking attendance."
+      },
+      "MessageOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "toolName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolname"
+          },
+          "toolArgs": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolargs"
+          },
+          "toolResult": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolresult"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "latencyMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latencyms"
+          },
+          "createdAt": {
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "content",
+          "createdAt"
+        ],
+        "title": "MessageOut"
+      },
+      "NotificationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "attendance",
+              "exam",
+              "canteen",
+              "certificate",
+              "helpdesk",
+              "system"
+            ],
+            "title": "Type"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read"
+          },
+          "actionLink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actionlink"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "message",
+          "type",
+          "timestamp",
+          "read"
+        ],
+        "title": "NotificationOut",
+        "description": "Notification item matching frontend NotificationItem contract."
+      },
+      "PaymentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "invoiceId": {
+            "type": "string",
+            "title": "Invoiceid"
+          },
+          "amount": {
+            "type": "number",
+            "title": "Amount"
+          },
+          "gateway": {
+            "type": "string",
+            "title": "Gateway"
+          },
+          "gatewayPaymentId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gatewaypaymentid"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "receiptUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipturl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "invoiceId",
+          "amount",
+          "gateway",
+          "status"
+        ],
+        "title": "PaymentOut",
+        "description": "Payment transaction summary."
+      },
+      "PublicVerifyOut": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "certificateType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificatetype"
+          },
+          "studentName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Studentname"
+          },
+          "rollNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollnumber"
+          },
+          "academicYear": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Academicyear"
+          },
+          "issuedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuedat"
+          },
+          "documentHash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documenthash"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid",
+          "message"
+        ],
+        "title": "PublicVerifyOut"
+      },
+      "RecommendationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "studentId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Studentid"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/LearningResourceOut"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "createdAt": {
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "studentId",
+          "resource",
+          "reason",
+          "status",
+          "createdAt"
+        ],
+        "title": "RecommendationOut",
+        "description": "Personalized learning recommendation for a student."
+      },
+      "RequestCertificateIn": {
+        "properties": {
+          "certificateType": {
+            "type": "string",
+            "title": "Certificatetype",
+            "description": "One of: Bonafide Certificate, Course Completion Certificate, Official Transcript, Character Certificate",
+            "examples": [
+              "Bonafide Certificate"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 10,
+            "title": "Purpose"
+          },
+          "academicYear": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{4}$",
+            "title": "Academicyear",
+            "default": "2025-2026"
+          }
+        },
+        "type": "object",
+        "required": [
+          "certificateType",
+          "purpose"
+        ],
+        "title": "RequestCertificateIn"
+      },
+      "ResolveTicketRequest": {
+        "properties": {
+          "resolutionNotes": {
+            "type": "string",
+            "title": "Resolutionnotes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resolutionNotes"
+        ],
+        "title": "ResolveTicketRequest",
+        "description": "Resolution details when closing a ticket."
+      },
+      "RiskFactorOut": {
+        "properties": {
+          "factor": {
+            "type": "string",
+            "title": "Factor"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity",
+            "description": "Low, Medium, High, or Critical"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "factor",
+          "severity",
+          "description"
+        ],
+        "title": "RiskFactorOut",
+        "description": "Specific explainable risk factor identified by the early warning system."
+      },
+      "SessionRosterOut": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/AttendanceSessionOut"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/AttendanceRecordOut"
+            },
+            "type": "array",
+            "title": "Records"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session",
+          "records"
+        ],
+        "title": "SessionRosterOut",
+        "description": "Live classroom roster for an attendance session."
+      },
+      "TicketMessageOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "senderId": {
+            "type": "string",
+            "title": "Senderid"
+          },
+          "senderName": {
+            "type": "string",
+            "title": "Sendername"
+          },
+          "senderRole": {
+            "type": "string",
+            "title": "Senderrole"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "senderId",
+          "senderName",
+          "senderRole",
+          "message",
+          "timestamp"
+        ],
+        "title": "TicketMessageOut",
+        "description": "Message item in a ticket conversation."
+      },
+      "TicketMessageRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "TicketMessageRequest",
+        "description": "New reply message in a ticket thread."
+      },
+      "TokenResponse": {
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "title": "Accesstoken"
+          },
+          "tokenType": {
+            "type": "string",
+            "title": "Tokentype",
+            "default": "bearer"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "title": "Expiresin"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserProfileResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accessToken",
+          "expiresIn",
+          "user"
+        ],
+        "title": "TokenResponse",
+        "description": "JWT Bearer token and profile payload."
+      },
+      "TopupWalletIn": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "maximum": 10000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Amount"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": [
+              "UPI",
+              "Card",
+              "NetBanking"
+            ],
+            "title": "Paymentmethod",
+            "default": "UPI"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "TopupWalletIn",
+        "description": "Student wallet top-up request."
+      },
+      "UpdateInterventionIn": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "pattern": "^(Pending|In Progress|Resolved)$",
+            "title": "Status"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "UpdateInterventionIn",
+        "description": "Update status or append notes to an existing intervention."
+      },
+      "UpdateMenuItemIn": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "prepTimeMinutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preptimeminutes"
+          },
+          "isVeg": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isveg"
+          },
+          "calories": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calories"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "title": "UpdateMenuItemIn",
+        "description": "Canteen staff updates item availability, price, or details."
+      },
+      "UpdateOrderStatusIn": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "preparing",
+              "ready",
+              "completed",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "counterNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counternumber"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "UpdateOrderStatusIn",
+        "description": "Staff updates order lifecycle state."
+      },
+      "UserProfileResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "rollNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollnumber"
+          },
+          "enrollmentId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrollmentid"
+          },
+          "semester": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semester"
+          },
+          "program": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Program"
+          },
+          "batch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch"
+          },
+          "cgpa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cgpa"
+          },
+          "hostelRoom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostelroom"
+          },
+          "busRoute": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Busroute"
+          },
+          "designation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designation"
+          },
+          "assignedCourses": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedcourses"
+          },
+          "cabinNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cabinnumber"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role"
+        ],
+        "title": "UserProfileResponse",
+        "description": "User profile matching the React UserProfile TypeScript interface."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerifyPaymentRequest": {
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "title": "Orderid"
+          },
+          "paymentId": {
+            "type": "string",
+            "title": "Paymentid"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature"
+          },
+          "invoiceId": {
+            "type": "string",
+            "title": "Invoiceid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "orderId",
+          "paymentId",
+          "signature",
+          "invoiceId"
+        ],
+        "title": "VerifyPaymentRequest",
+        "description": "Payment verification payload from frontend checkout modal."
+      },
+      "VerifyQrIn": {
+        "properties": {
+          "qrValue": {
+            "type": "string",
+            "title": "Qrvalue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "qrValue"
+        ],
+        "title": "VerifyQrIn",
+        "description": "Staff scans student QR code for order redemption."
+      },
+      "WalletAccountOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "studentId": {
+            "type": "string",
+            "title": "Studentid"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "transactions": {
+            "items": {
+              "$ref": "#/components/schemas/WalletTransactionOut"
+            },
+            "type": "array",
+            "title": "Transactions",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "studentId",
+          "balance",
+          "status"
+        ],
+        "title": "WalletAccountOut",
+        "description": "Campus wallet balance and history."
+      },
+      "WalletTransactionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "number",
+            "title": "Amount"
+          },
+          "transactionType": {
+            "type": "string",
+            "enum": [
+              "credit",
+              "debit"
+            ],
+            "title": "Transactiontype"
+          },
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "balanceAfter": {
+            "type": "number",
+            "title": "Balanceafter"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "transactionType",
+          "reference",
+          "balanceAfter",
+          "timestamp"
+        ],
+        "title": "WalletTransactionOut",
+        "description": "Ledger transaction entry."
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

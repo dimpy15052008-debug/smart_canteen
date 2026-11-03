@@ -1,0 +1,19 @@
+{
+  "schoolName": "School of Future Skills and Information Technology (FSIT)",
+  "ingestedAt": "2026-09-28T10:44:00.423Z",
+  "status": "complete",
+  "categories": [
+    "school_info",
+    "programme_catalogue",
+    "curriculum",
+    "eligibility",
+    "fee_structure_2026_27"
+  ],
+  "documentsIngested": [
+    "2. Programme Page Content Requirement - School of FSIT data.docx",
+    "4. BCA(AI-ML) data.docx",
+    "5. BCA (Cyber Security) data.docx",
+    "7. BCA(IT) data.docx",
+    "Fees_Structure 26-27 data.docx"
+  ]
+}
