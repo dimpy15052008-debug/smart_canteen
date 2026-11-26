@@ -387,50 +387,6 @@ export const SmartCanteenView: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Top Banner & Live Queue Status */}
-      <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-indigo-950/40 border border-amber-500/20 rounded-3xl p-6 shadow-xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
-                {staffMode ? 'Vendor Command Center' : 'Smart Canteen Pre-Order'}
-              </span>
-              <span className="text-xs text-slate-300 font-medium flex items-center gap-1">
-                <ChefHat className="w-3.5 h-3.5 text-amber-400" />
-                {vendorProfile.stallName} • {vendorProfile.counterNumber}
-              </span>
-            </div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">
-              {staffMode ? 'Campus Vendor & Kitchen Operations' : 'Pre-Order & Token-Based Pickup'}
-            </h1>
-            <p className="text-sm text-slate-300 mt-1">
-              {staffMode
-                ? 'Manage kitchen orders, QR counter verifications, food inventory, and payouts in real time.'
-                : '"Reduce the queue. Protect class time." Pre-order your meals before recess and skip the lines!'}
-            </p>
-          </div>
-
-          {/* Live Kitchen Load Indicator & Staff Toggle */}
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 flex items-center gap-4">
-              <div>
-                <p className="text-[11px] text-slate-400 font-mono">Live Kitchen Queue</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-                  <span className="text-base font-bold text-white">{activeOrders.length} Orders in Prep</span>
-                </div>
-                <p className="text-xs text-amber-300 mt-0.5 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  Est. Wait: ~{estimatedKitchenWaitMinutes} mins
-                </p>
-              </div>
-            </div>
-
-
-          </div>
-        </div>
-      </div>
-
       {/* STAFF / VENDOR BOARD */}
       {staffMode ? (
         <div className="flex flex-col lg:flex-row gap-6">
