@@ -54,6 +54,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import confetti from 'canvas-confetti';
+import { AdminCanteenPayments } from './AdminCanteenPayments';
 
 export const AdminDashboard: React.FC = () => {
   const location = useLocation();
@@ -71,6 +72,7 @@ export const AdminDashboard: React.FC = () => {
     if (p.includes('application')) return 'applications';
     if (p.includes('analytic')) return 'analytics';
     if (p.includes('operation')) return 'operations';
+    if (p.includes('payment')) return 'payments';
     if (p.includes('profile')) return 'profile';
     return 'students';
   };
@@ -1096,6 +1098,11 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── CANTEEN PAYMENTS (RAZORPAY GATEWAY) ───────────────────────── */}
+      {activeTab === 'payments' && (
+        <AdminCanteenPayments />
       )}
 
       {/* ── 9. ADMIN PROFILE ─────────────────────────────────────────────── */}

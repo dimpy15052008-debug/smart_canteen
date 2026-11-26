@@ -6,9 +6,15 @@ import {
   CheckCircle2, CreditCard, ArrowRight, Sparkles,
   X, Calendar, Wallet, History, Home, AlertCircle,
   RefreshCw, ShieldCheck, ChefHat, Package,
-  Scan
+  Scan, RotateCcw, Loader2, Lock, BadgeCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import {
+  loadRazorpayScript,
+  getRazorpayConfig,
+  createRazorpayOrder,
+  verifyPaymentOnServer,
+} from '../../utils/razorpay';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,10 +48,12 @@ interface CanteenOrderRecord {
   id: string;
   orderId: string;
   paymentId: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
   items: OrderItem[];
   totalAmount: number;
-  paymentMethod: 'UPI' | 'Wallet';
-  paymentStatus: 'Paid' | 'Pending';
+  paymentMethod: 'Razorpay' | 'UPI' | 'Wallet';
+  paymentStatus: 'Paid' | 'Pending' | 'Failed';
   orderStatus: OrderStatus;
   cancelType: CancelType;
   walletAdjustment: number;
@@ -464,9 +472,14 @@ export const CanteenStudentModule: React.FC = () => {
     return () => window.removeEventListener('canteen_menu_changed', onMenuChanged);
   }, []);
 
-  // Payment
-  const [payMethod, setPayMethod] = useState<'UPI' | 'Wallet'>('UPI');
-  const [payStep, setPayStep] = useState<'select' | 'processing' | 'success'>('select');
+  // Payment State
+  const [payMethod, setPayMethod] = useState<'Razorpay' | 'Wallet' | 'UPI'>('Razorpay');
+  const [payStep, setPayStep] = useState<'select' | 'pending' | 'success' | 'failed'>('select');
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [currentRazorpayOrderId, setCurrentRazorpayOrderId] = useState<string | null>(null);
+  const [isProcessingRazorpay, setIsProcessingRazorpay] = useState<boolean>(false);
+  const [showTestModal, setShowTestModal] = useState<boolean>(false);
+  const [testPaymentTab, setTestPaymentTab] = useState<'upi' | 'card' | 'netbanking'>('upi');
   const [lastOrder, setLastOrder] = useState<CanteenOrderRecord | null>(null);
   const [storeCredit, setStoreCredit] = useState<number>(0);
   const [pickupTime, setPickupTime] = useState<string>('');
@@ -526,27 +539,248 @@ export const CanteenStudentModule: React.FC = () => {
   const cartTotal = cartEntries.reduce((a, e) => a + e.item.price * e.qty, 0);
 
   // Payment
-  const startPayment = () => { setPayStep('select'); setStoreCredit(0); setPickupTime(''); setView('payment'); };
+  const startPayment = () => {
+    setPayStep('select');
+    setPaymentError(null);
+    setStoreCredit(0);
+    setPickupTime('');
+    setShowTestModal(false);
+    setView('payment');
+  };
 
   const effectiveTotal = Math.max(0, cartTotal - storeCredit);
 
-  const payNow = () => {
-    if (!pickupTime) { showToast('Please select a pickup time before paying.'); return; }
-    if (storeCredit > 0) {
-      // Deduct store credit from wallet
-      setBalance(b => b - storeCredit);
-      const scTx: WalletTransaction = { id: uid('tx'), type: 'debit', amount: storeCredit, reason: `Store Credit Applied — ${cartEntries.map(e => e.item.name).join(', ')}`, date: nowStr(), createdAt: Date.now() };
-      setTxHistory(p => [scTx, ...p]);
+  // Server-side verification handler for Razorpay
+  const handleRazorpayVerification = async (payload: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    methodDetails?: string;
+  }) => {
+    try {
+      setPayStep('pending');
+      setIsProcessingRazorpay(true);
+      const verifyResult = await verifyPaymentOnServer({
+        razorpay_order_id: payload.razorpay_order_id,
+        razorpay_payment_id: payload.razorpay_payment_id,
+        razorpay_signature: payload.razorpay_signature,
+        orderDetails: {
+          orderId: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+          items: cartEntries.map(e => ({ itemId: e.item.id, name: e.item.name, price: e.item.price, quantity: e.qty })),
+          pickupTime,
+          storeCredit,
+          totalAmount: effectiveTotal,
+          paymentMethod: 'Razorpay',
+          methodDetails: payload.methodDetails || 'Razorpay Online (UPI/Cards/NetBanking)',
+          studentId: 'STU-8842',
+          studentName: 'Faizan Ali',
+        },
+      });
+
+      if (!verifyResult.verified) {
+        setPayStep('failed');
+        setPaymentError(verifyResult.error || 'Server signature verification failed.');
+        setShowTestModal(false);
+        setIsProcessingRazorpay(false);
+        return;
+      }
+
+      // Payment verified on server! Deduct store credit from wallet only now
+      if (storeCredit > 0) {
+        setBalance(b => Math.max(0, b - storeCredit));
+        const scTx: WalletTransaction = {
+          id: uid('tx'),
+          type: 'debit',
+          amount: storeCredit,
+          reason: `Store Credit Applied — ${cartEntries.map(e => e.item.name).join(', ')}`,
+          date: nowStr(),
+          createdAt: Date.now(),
+        };
+        setTxHistory(p => [scTx, ...p]);
+      }
+
+      const orderItems: OrderItem[] = cartEntries.map(e => ({
+        itemId: e.item.id,
+        name: e.item.name,
+        price: e.item.price,
+        quantity: e.qty,
+      }));
+
+      const newConfirmedOrder: CanteenOrderRecord = {
+        id: uid('order'),
+        orderId: verifyResult.order?.id || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+        paymentId: payload.razorpay_payment_id,
+        razorpayOrderId: payload.razorpay_order_id,
+        razorpayPaymentId: payload.razorpay_payment_id,
+        items: orderItems,
+        totalAmount: effectiveTotal,
+        paymentMethod: 'Razorpay',
+        paymentStatus: 'Paid',
+        orderStatus: 'Confirmed',
+        cancelType: null,
+        walletAdjustment: 0,
+        dateTime: nowStr(),
+        createdAt: Date.now(),
+        pickupTime,
+        refundStatus: null,
+      };
+
+      registerShared(orderItems);
+      setOrders(p => [newConfirmedOrder, ...p]);
+      setLastOrder(newConfirmedOrder);
+      clearCart();
+      setShowTestModal(false);
+      setIsProcessingRazorpay(false);
+      setPayStep('success');
+
+      try {
+        confetti({ particleCount: 90, spread: 75, origin: { y: 0.6 }, colors: ['#f59e0b', '#10b981', '#6366f1'] });
+      } catch { /* ignore */ }
+    } catch (err: any) {
+      setIsProcessingRazorpay(false);
+      setShowTestModal(false);
+      setPayStep('failed');
+      setPaymentError(err.message || 'Payment verification encountered a network error.');
     }
+  };
+
+  const payNow = async () => {
+    if (!pickupTime) {
+      showToast('Please select a pickup time before paying.');
+      return;
+    }
+
+    // 1. Razorpay Flow
+    if (payMethod === 'Razorpay') {
+      try {
+        setIsProcessingRazorpay(true);
+        setPayStep('pending');
+        setPaymentError(null);
+
+        // Fetch config & create order on backend
+        const orderRes = await createRazorpayOrder({
+          items: cartEntries.map(e => ({
+            itemId: e.item.id,
+            name: e.item.name,
+            price: e.item.price,
+            quantity: e.qty,
+          })),
+          pickupTime,
+          storeCredit,
+          studentId: 'STU-8842',
+          studentName: 'Faizan Ali',
+        });
+
+        setCurrentRazorpayOrderId(orderRes.order.id);
+
+        // Load Razorpay Standard Checkout SDK
+        const sdkLoaded = await loadRazorpayScript();
+        const hasLiveKey = orderRes.keyId && !orderRes.keyId.includes('PLACEHOLDER') && orderRes.keyId.startsWith('rzp_');
+
+        if (sdkLoaded && typeof (window as any).Razorpay !== 'undefined' && hasLiveKey) {
+          const options = {
+            key: orderRes.keyId,
+            amount: orderRes.order.amount,
+            currency: orderRes.order.currency || 'INR',
+            name: 'SmartUni Campus Canteen',
+            description: `Canteen Pre-Order (${cartEntries.length} items)`,
+            order_id: orderRes.order.id,
+            prefill: {
+              name: 'Faizan Ali',
+              email: 'faizan.ali@smartuni.ac.in',
+              contact: '9876543210',
+            },
+            theme: {
+              color: '#d97706',
+            },
+            modal: {
+              ondismiss: () => {
+                setIsProcessingRazorpay(false);
+                setPayStep('failed');
+                setPaymentError('Razorpay checkout was dismissed without payment.');
+              },
+            },
+            handler: async (response: any) => {
+              await handleRazorpayVerification({
+                razorpay_order_id: response.razorpay_order_id || orderRes.order.id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                methodDetails: 'Razorpay Standard Checkout (UPI / Cards)',
+              });
+            },
+          };
+
+          const rzpInstance = new (window as any).Razorpay(options);
+          rzpInstance.on('payment.failed', function (resp: any) {
+            setIsProcessingRazorpay(false);
+            setPayStep('failed');
+            setPaymentError(resp.error?.description || 'Payment rejected by bank or gateway.');
+          });
+          rzpInstance.open();
+        } else {
+          // Open Interactive Razorpay Test Sandbox Modal
+          setIsProcessingRazorpay(false);
+          setShowTestModal(true);
+        }
+      } catch (err: any) {
+        setIsProcessingRazorpay(false);
+        setPayStep('failed');
+        setPaymentError(err.message || 'Failed to initiate Razorpay checkout.');
+      }
+      return;
+    }
+
+    // 2. Campus Wallet Flow
     if (payMethod === 'Wallet') {
-      if (balance - storeCredit < effectiveTotal) { showToast('Insufficient wallet balance.'); return; }
+      if (balance - storeCredit < effectiveTotal) {
+        showToast('Insufficient wallet balance.');
+        return;
+      }
+      if (storeCredit > 0) {
+        setBalance(b => b - storeCredit);
+        const scTx: WalletTransaction = {
+          id: uid('tx'),
+          type: 'debit',
+          amount: storeCredit,
+          reason: `Store Credit Applied — ${cartEntries.map(e => e.item.name).join(', ')}`,
+          date: nowStr(),
+          createdAt: Date.now(),
+        };
+        setTxHistory(p => [scTx, ...p]);
+      }
       const nb = balance - storeCredit - effectiveTotal;
       setBalance(nb);
-      const tx: WalletTransaction = { id: uid('tx'), type: 'debit', amount: effectiveTotal, reason: `Canteen Order — ${cartEntries.map(e => e.item.name).join(', ')}`, date: nowStr(), createdAt: Date.now() };
+      const tx: WalletTransaction = {
+        id: uid('tx'),
+        type: 'debit',
+        amount: effectiveTotal,
+        reason: `Canteen Order — ${cartEntries.map(e => e.item.name).join(', ')}`,
+        date: nowStr(),
+        createdAt: Date.now(),
+      };
       setTxHistory(p => [tx, ...p]);
+      setPayStep('pending');
+      setTimeout(completeOrder, 1400);
+      return;
     }
-    setPayStep('processing');
-    setTimeout(completeOrder, 1800);
+
+    // 3. Offline UPI QR Flow (Preserve existing QR payment functionality intact)
+    if (payMethod === 'UPI') {
+      if (storeCredit > 0) {
+        setBalance(b => b - storeCredit);
+        const scTx: WalletTransaction = {
+          id: uid('tx'),
+          type: 'debit',
+          amount: storeCredit,
+          reason: `Store Credit Applied — ${cartEntries.map(e => e.item.name).join(', ')}`,
+          date: nowStr(),
+          createdAt: Date.now(),
+        };
+        setTxHistory(p => [scTx, ...p]);
+      }
+      setPayStep('pending');
+      setTimeout(completeOrder, 1800);
+    }
   };
 
   const completeOrder = () => {
@@ -555,7 +789,7 @@ export const CanteenStudentModule: React.FC = () => {
     const items: OrderItem[] = cartEntries.map(e => ({ itemId: e.item.id, name: e.item.name, price: e.item.price, quantity: e.qty }));
     const o: CanteenOrderRecord = {
       id: uid('order'), orderId, paymentId, items,
-      totalAmount: cartTotal, paymentMethod: payMethod,
+      totalAmount: effectiveTotal, paymentMethod: payMethod,
       paymentStatus: 'Paid', orderStatus: 'Confirmed',
       cancelType: null, walletAdjustment: 0,
       dateTime: nowStr(), createdAt: Date.now(),
@@ -1039,97 +1273,541 @@ export const CanteenStudentModule: React.FC = () => {
               {/* Payment Method */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-slate-400">Choose Payment Method</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {(['UPI', 'Wallet'] as const).map(method => (
-                    <button key={method} onClick={() => setPayMethod(method)}
-                      className={`p-4 rounded-2xl border text-xs font-bold transition-all flex flex-col items-center gap-2 ${payMethod === method ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-slate-950 border-slate-700 text-slate-400 hover:text-white'}`}>
-                      {method === 'UPI' ? <QrCode className="w-6 h-6" /> : <Wallet className="w-6 h-6" />}
-                      {method === 'UPI' ? 'UPI / QR' : `Wallet (₹${balance - storeCredit})`}
+                <div className="grid grid-cols-1 gap-2.5">
+                  {/* Option 1: Razorpay Standard Checkout (Primary) */}
+                  <button
+                    type="button"
+                    onClick={() => setPayMethod('Razorpay')}
+                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                      payMethod === 'Razorpay'
+                        ? 'bg-amber-500/15 border-amber-500 text-white shadow-md shadow-amber-500/5'
+                        : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        payMethod === 'Razorpay' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-900 text-slate-400'
+                      }`}>
+                        <CreditCard className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-white">Razorpay Checkout</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            Test Mode
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">UPI, Cards, NetBanking, Wallets</p>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      payMethod === 'Razorpay' ? 'border-amber-400 bg-amber-400' : 'border-slate-600'
+                    }`}>
+                      {payMethod === 'Razorpay' && <div className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
+                    </div>
+                  </button>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* Option 2: Campus Wallet */}
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod('Wallet')}
+                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                        payMethod === 'Wallet'
+                          ? 'bg-emerald-500/15 border-emerald-500 text-white'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Wallet className="w-4 h-4 text-emerald-400" />
+                        <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                          payMethod === 'Wallet' ? 'border-emerald-400 bg-emerald-400' : 'border-slate-600'
+                        }`}>
+                          {payMethod === 'Wallet' && <div className="w-1 h-1 rounded-full bg-slate-950" />}
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <p className="font-bold text-xs text-white">Campus Wallet</p>
+                        <p className="text-[10px] text-emerald-400 font-mono">₹{balance - storeCredit}</p>
+                      </div>
                     </button>
-                  ))}
+
+                    {/* Option 3: Offline UPI / QR */}
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod('UPI')}
+                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                        payMethod === 'UPI'
+                          ? 'bg-indigo-500/15 border-indigo-500 text-white'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <QrCode className="w-4 h-4 text-indigo-400" />
+                        <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                          payMethod === 'UPI' ? 'border-indigo-400 bg-indigo-400' : 'border-slate-600'
+                        }`}>
+                          {payMethod === 'UPI' && <div className="w-1 h-1 rounded-full bg-slate-950" />}
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <p className="font-bold text-xs text-white">Offline QR</p>
+                        <p className="text-[10px] text-slate-400">Cashless Scan</p>
+                      </div>
+                    </button>
+                  </div>
                 </div>
+
                 {payMethod === 'Wallet' && (balance - storeCredit) < effectiveTotal && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300">
-                    ⚠ Insufficient balance. Need ₹{effectiveTotal - (balance - storeCredit)} more.
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Insufficient wallet balance. Need ₹{effectiveTotal - (balance - storeCredit)} more.</span>
                   </div>
                 )}
               </div>
 
-              <button onClick={payNow} disabled={!pickupTime || (payMethod === 'Wallet' && (balance - storeCredit) < effectiveTotal)}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all">
-                <ShieldCheck className="w-5 h-5" />Pay Now — ₹{effectiveTotal}
-              </button>
-              <button onClick={() => setView('cart')} className="w-full py-2 text-xs text-slate-400 hover:text-white transition-colors">← Back to Cart</button>
-            </div>
-          )}
-
-          {/* Processing */}
-          {payStep === 'processing' && (
-            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 text-center space-y-5">
-              <h2 className="text-base font-bold text-white">Processing Payment…</h2>
-              <div className="w-44 h-44 bg-white p-3 rounded-2xl mx-auto shadow-2xl border border-slate-200"><QRGrid /></div>
-              <p className="text-xs text-slate-400">Demo QR — Simulated Payment</p>
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                <span className="text-xs text-amber-300">Verifying transaction…</span>
-              </div>
-            </div>
-          )}
-
-          {/* Success */}
-          {payStep === 'success' && lastOrder && (
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              className="bg-slate-900/80 border border-emerald-500/30 rounded-3xl p-6 space-y-5 text-center">
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring' }}
-                className="w-16 h-16 rounded-3xl bg-emerald-500/20 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-9 h-9 text-emerald-400" />
-              </motion.div>
-              <div>
-                <h2 className="text-xl font-extrabold text-white">Payment Successful!</h2>
-                <p className="text-sm text-emerald-400 mt-1">Your order has been confirmed</p>
-              </div>
-
-              {/* Preparing status banner */}
-              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-                className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-                  <ChefHat className="w-4 h-4 text-amber-400" />
-                </div>
-                <div className="text-left">
-                  <p className="text-xs font-bold text-amber-300">Preparing your order…</p>
-                  <p className="text-[10px] text-amber-400/70">The canteen has received your order and is getting it ready.</p>
-                </div>
-              </motion.div>
-
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-left space-y-2 text-xs">
-                <div className="flex justify-between text-slate-300"><span className="text-slate-500">Order ID</span><span className="font-mono font-bold text-white">{lastOrder.orderId}</span></div>
-                <div className="flex justify-between text-slate-300"><span className="text-slate-500">Payment ID</span><span className="font-mono font-bold text-amber-400">{lastOrder.paymentId}</span></div>
-                <div className="flex justify-between text-slate-300"><span className="text-slate-500">Amount</span><span className="font-mono font-bold text-emerald-400">₹{lastOrder.totalAmount}</span></div>
-                <div className="flex justify-between text-slate-300"><span className="text-slate-500">Method</span><span className="font-bold">{lastOrder.paymentMethod}</span></div>
-                {lastOrder.pickupTime && (
-                  <div className="flex justify-between text-slate-300"><span className="text-slate-500">Pickup Time</span><span className="font-bold text-blue-300">{lastOrder.pickupTime}</span></div>
+              {/* Prominent Pay Now Button */}
+              <button
+                type="button"
+                onClick={payNow}
+                disabled={!pickupTime || isProcessingRazorpay || (payMethod === 'Wallet' && (balance - storeCredit) < effectiveTotal)}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-600/25 transition-all"
+              >
+                {isProcessingRazorpay ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Initializing Gateway…</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-5 h-5 text-amber-200" />
+                    <span>Pay Now — ₹{effectiveTotal}</span>
+                  </>
                 )}
-                <div className="flex justify-between text-slate-300"><span className="text-slate-500">Date &amp; Time</span><span className="text-slate-400 text-[10px]">{lastOrder.dateTime}</span></div>
-                <div className="border-t border-slate-800 pt-2 space-y-1">
-                  {lastOrder.items.map(i => (
-                    <div key={i.itemId} className="flex justify-between text-slate-300"><span>{i.name} × {i.quantity}</span><span className="font-mono">₹{i.price * i.quantity}</span></div>
-                  ))}
+              </button>
+
+              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                <span className="flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-emerald-400" /> 256-bit SSL Verified
+                </span>
+                <span>Powered by Razorpay</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setView('cart')}
+                className="w-full py-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                ← Back to Cart
+              </button>
+            </div>
+          )}
+
+          {/* Pending State */}
+          {payStep === 'pending' && (
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 text-center space-y-5"
+            >
+              <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+
+              <div>
+                <h2 className="text-lg font-bold text-white">Payment Processing…</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  {payMethod === 'Razorpay'
+                    ? 'Waiting for payment confirmation from Razorpay Gateway…'
+                    : 'Verifying payment with campus canteen backend…'}
+                </p>
+              </div>
+
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs space-y-2 max-w-sm mx-auto text-left">
+                <div className="flex justify-between text-slate-400">
+                  <span>Payable Amount:</span>
+                  <span className="font-mono font-bold text-amber-400 text-sm">₹{effectiveTotal}</span>
+                </div>
+                {currentRazorpayOrderId && (
+                  <div className="flex justify-between text-slate-400">
+                    <span>Razorpay Order:</span>
+                    <span className="font-mono text-slate-300 text-[11px]">{currentRazorpayOrderId}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-slate-400">
+                  <span>Status:</span>
+                  <span className="text-sky-400 font-mono flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
+                    Pending Verification
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Pickup Slot:</span>
+                  <span className="text-blue-300 font-semibold">{pickupTime}</span>
                 </div>
               </div>
-              <div className="w-36 h-36 bg-white p-2.5 rounded-2xl mx-auto shadow-xl border border-slate-200">
-                <div className="grid grid-cols-7 gap-0.5 w-full h-full p-1 bg-slate-950 rounded-xl">
-                  {Array.from({ length: 49 }).map((_, i) => (
-                    <div key={i} className={`rounded-sm ${[0,6,42,48,16,24,32].includes(i) ? 'bg-indigo-400' : i % 5 === 0 ? 'bg-white' : 'bg-slate-900'}`} />
-                  ))}
+
+              <p className="text-[10px] text-slate-500">
+                Order will be confirmed only after server-side cryptographic signature validation.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPayStep('select');
+                  setIsProcessingRazorpay(false);
+                  setShowTestModal(false);
+                }}
+                className="text-xs text-slate-400 hover:text-rose-400 transition-colors"
+              >
+                Cancel &amp; Return to Payment Methods
+              </button>
+            </motion.div>
+          )}
+
+          {/* Failed State */}
+          {payStep === 'failed' && (
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-slate-900/90 border border-rose-500/30 rounded-3xl p-6 text-center space-y-5"
+            >
+              <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-400">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+
+              <div>
+                <h2 className="text-xl font-extrabold text-white">Payment Failed</h2>
+                <p className="text-xs text-rose-300 mt-1.5 max-w-xs mx-auto leading-relaxed">
+                  {paymentError || 'Your transaction was cancelled or could not be verified by the server. Your account was not charged.'}
+                </p>
+              </div>
+
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-slate-400 space-y-2 text-left">
+                <div className="flex justify-between">
+                  <span>Payable Amount:</span>
+                  <span className="font-mono font-bold text-white">₹{effectiveTotal}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Method Selected:</span>
+                  <span className="text-slate-200">{payMethod === 'Razorpay' ? 'Razorpay Standard Checkout' : payMethod}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Order State:</span>
+                  <span className="text-rose-400 font-bold">Unpaid / Payment Incomplete</span>
                 </div>
               </div>
-              <p className="text-[10px] text-slate-500">Demo QR — Show at counter to collect your order</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => { setView('my-orders'); setPayStep('select'); }} className="py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">Track Order</button>
-                <button onClick={() => { setView('menu'); setPayStep('select'); }} className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold">Order More</button>
+
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentError(null);
+                    payNow();
+                  }}
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20 transition-all"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Retry Payment with Razorpay
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentError(null);
+                    setPayStep('select');
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
+                >
+                  Choose Another Payment Method
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setView('cart')}
+                  className="w-full py-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  ← Return to Cart
+                </button>
               </div>
             </motion.div>
           )}
+
+          {/* Success State */}
+          {payStep === 'success' && lastOrder && (
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-slate-900/80 border border-emerald-500/30 rounded-3xl p-6 space-y-5 text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: 'spring' }}
+                className="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto"
+              >
+                <CheckCircle2 className="w-9 h-9 text-emerald-400" />
+              </motion.div>
+
+              <div>
+                <h2 className="text-xl font-extrabold text-white">Payment Successful!</h2>
+                <p className="text-sm text-emerald-400 mt-1">Verified &amp; Confirmed by SmartUni Server</p>
+              </div>
+
+              {/* Preparing status banner */}
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 flex items-center gap-3 text-left"
+              >
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                  <ChefHat className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-amber-300">Preparing your order…</p>
+                  <p className="text-[10px] text-amber-400/70">
+                    Kitchen Order Ticket generated. Collect your token at Counter #{lastOrder.orderId ? lastOrder.orderId.slice(-1) : '1'}.
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* Complete Transaction & Order Summary */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-left space-y-2 text-xs">
+                <div className="flex justify-between text-slate-300">
+                  <span className="text-slate-500">Order ID</span>
+                  <span className="font-mono font-bold text-white">{lastOrder.orderId}</span>
+                </div>
+                <div className="flex justify-between text-slate-300">
+                  <span className="text-slate-500">Transaction ID</span>
+                  <span className="font-mono font-bold text-amber-400">{lastOrder.paymentId}</span>
+                </div>
+                {lastOrder.razorpayOrderId && (
+                  <div className="flex justify-between text-slate-300">
+                    <span className="text-slate-500">Razorpay Order</span>
+                    <span className="font-mono text-slate-400 text-[11px]">{lastOrder.razorpayOrderId}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-slate-300">
+                  <span className="text-slate-500">Amount Paid</span>
+                  <span className="font-mono font-bold text-emerald-400 text-sm">₹{lastOrder.totalAmount}</span>
+                </div>
+                <div className="flex justify-between text-slate-300">
+                  <span className="text-slate-500">Payment Gateway</span>
+                  <span className="font-bold text-slate-200">{lastOrder.paymentMethod}</span>
+                </div>
+                {lastOrder.pickupTime && (
+                  <div className="flex justify-between text-slate-300">
+                    <span className="text-slate-500">Pickup Slot</span>
+                    <span className="font-bold text-blue-300">{lastOrder.pickupTime}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-slate-300">
+                  <span className="text-slate-500">Date &amp; Time</span>
+                  <span className="text-slate-400 text-[10px]">{lastOrder.dateTime}</span>
+                </div>
+                <div className="border-t border-slate-800 pt-2 space-y-1">
+                  {lastOrder.items.map(i => (
+                    <div key={i.itemId} className="flex justify-between text-slate-300">
+                      <span>{i.name} × {i.quantity}</span>
+                      <span className="font-mono text-slate-400">₹{i.price * i.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Order QR Code Token */}
+              <div className="w-36 h-36 bg-white p-2.5 rounded-2xl mx-auto shadow-xl border border-slate-200">
+                <div className="grid grid-cols-7 gap-0.5 w-full h-full p-1 bg-slate-950 rounded-xl">
+                  {Array.from({ length: 49 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-sm ${
+                        [0, 6, 42, 48, 16, 24, 32].includes(i)
+                          ? 'bg-amber-400'
+                          : i % 5 === 0
+                          ? 'bg-white'
+                          : 'bg-slate-900'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500">Show this QR / Token at the canteen counter</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setView('my-orders');
+                    setPayStep('select');
+                  }}
+                  className="py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-colors"
+                >
+                  Track in My Orders
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setView('menu');
+                    setPayStep('select');
+                  }}
+                  className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors"
+                >
+                  Order More
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ─── Interactive Razorpay Test Sandbox Modal ─── */}
+          <AnimatePresence>
+            {showTestModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  className="bg-slate-900 border border-slate-700 rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4 text-slate-100"
+                >
+                  {/* Modal Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs">
+                        ₹
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                          Razorpay Standard Checkout
+                        </h3>
+                        <span className="text-[10px] text-amber-400 font-mono">Test Sandbox Mode</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowTestModal(false)}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Amount Pill */}
+                  <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase font-mono">SmartUni Canteen Pre-Order</p>
+                      <p className="text-xs text-slate-300 mt-0.5">{pickupTime} slot</p>
+                    </div>
+                    <span className="text-xl font-extrabold text-amber-400 font-mono">₹{effectiveTotal}</span>
+                  </div>
+
+                  {/* Payment Method Tabs */}
+                  <div className="flex gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+                    {(['upi', 'card', 'netbanking'] as const).map(tab => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setTestPaymentTab(tab)}
+                        className={`flex-1 py-1.5 rounded-lg font-bold capitalize transition-all ${
+                          testPaymentTab === tab ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {tab === 'upi' ? 'UPI' : tab === 'card' ? 'Cards' : 'Net Banking'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Tab 1: UPI */}
+                  {testPaymentTab === 'upi' && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-slate-400">Select simulated test UPI handle:</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {[
+                          { name: 'Google Pay', handle: 'faizan@okhdfcbank' },
+                          { name: 'PhonePe', handle: 'faizan@ybl' },
+                          { name: 'Paytm UPI', handle: 'faizan@paytm' },
+                          { name: 'BHIM UPI', handle: 'faizan@upi' },
+                        ].map(app => (
+                          <div
+                            key={app.name}
+                            className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/40 cursor-pointer"
+                          >
+                            <p className="font-bold text-white text-[11px]">{app.name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono truncate">{app.handle}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 2: Test Cards */}
+                  {testPaymentTab === 'card' && (
+                    <div className="space-y-2.5 bg-slate-950 p-3 rounded-2xl border border-slate-800 text-xs font-mono">
+                      <div className="flex justify-between items-center text-slate-400 text-[10px]">
+                        <span>Test Card Number</span>
+                        <span className="text-emerald-400 font-bold">Visa / Mastercard</span>
+                      </div>
+                      <div className="text-white font-bold tracking-widest text-sm">
+                        4000 •••• •••• 4242
+                      </div>
+                      <div className="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                        <span>Exp: 12/28</span>
+                        <span>CVV: 123</span>
+                        <span>OTP: Auto-verified</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 3: Net Banking */}
+                  {testPaymentTab === 'netbanking' && (
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {['HDFC Bank', 'ICICI Bank', 'State Bank of India', 'Axis Bank'].map(bank => (
+                        <div key={bank} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-medium">
+                          {bank}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Submit / Failure Simulation Buttons */}
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const randomSuffix = Math.random().toString(36).substring(2, 8);
+                        const testPayId = `pay_${Date.now().toString(36)}${randomSuffix}`;
+                        const orderId = currentRazorpayOrderId || `order_${Date.now().toString(36)}`;
+                        const testSig = `test_sig_${randomSuffix}`;
+
+                        handleRazorpayVerification({
+                          razorpay_order_id: orderId,
+                          razorpay_payment_id: testPayId,
+                          razorpay_signature: testSig,
+                          methodDetails: `Razorpay (${testPaymentTab.toUpperCase()})`,
+                        });
+                      }}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs font-extrabold transition-all shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Complete Test Payment — ₹{effectiveTotal}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTestModal(false);
+                        setPayStep('failed');
+                        setPaymentError('Simulated payment failure (User cancelled payment on bank page).');
+                      }}
+                      className="w-full py-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 hover:text-rose-300 text-slate-400 text-[11px] font-semibold transition-colors"
+                    >
+                      Simulate Payment Failure
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

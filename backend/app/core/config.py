@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     DEMO_ADMIN_PASSWORD: str = "demo1234"
     DEMO_CANTEEN_PASSWORD: str = "demo1234"
 
+    # ---- Razorpay Payment Gateway (Test Mode) ----
+    RAZORPAY_KEY_ID: str = "rzp_test_51PLACEHOLDER"
+    RAZORPAY_KEY_SECRET: str = "rzp_test_secret_placeholder"
+    RAZORPAY_WEBHOOK_SECRET: str = "rzp_test_webhook_secret_placeholder"
+
     # ---- Security validators ----
     @model_validator(mode="after")
     def production_safety_checks(self) -> Settings:

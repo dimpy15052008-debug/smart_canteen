@@ -21,6 +21,7 @@ import {
   X,
   ShieldCheck,
   MoreHorizontal,
+  CreditCard,
 } from 'lucide-react';
 
 export interface AdminNavItem {
@@ -104,6 +105,15 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     path: '/admin/operations',
     icon: Server,
     badge: '99.9%',
+    badgeTone: 'live',
+  },
+  {
+    id: 'canteen-payments',
+    label: 'Canteen Payments',
+    shortLabel: 'Payments',
+    path: '/admin/payments',
+    icon: CreditCard,
+    badge: 'Razorpay',
     badgeTone: 'live',
   },
   {

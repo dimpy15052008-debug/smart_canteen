@@ -137,3 +137,63 @@ class TopupWalletIn(CamelModel):
 
     amount: float = Field(..., gt=0, le=10000)
     payment_method: Literal["UPI", "Card", "NetBanking"] = "UPI"
+
+
+class RazorpayConfigOut(CamelModel):
+    """Public Razorpay client configuration."""
+
+    key_id: str
+    currency: str = "INR"
+    is_test_mode: bool = True
+    name: str = "SmartUni Campus Canteen"
+
+
+class CreateRazorpayOrderIn(CamelModel):
+    """Payload to initiate a Razorpay order."""
+
+    items: list[CanteenOrderItemIn]
+    pickup_time: str = "12:30 PM"
+    store_credit: float = 0.0
+    student_id: str = "STU-8842"
+    student_name: str = "Faizan Ali"
+
+
+class CreateRazorpayOrderOut(CamelModel):
+    """Razorpay order creation response."""
+
+    success: bool = True
+    order: dict
+    key_id: str
+    amount: float
+    currency: str = "INR"
+    order_items: list[dict]
+    transaction_id: str
+
+
+class VerifyRazorpayPaymentIn(CamelModel):
+    """Payload for HMAC SHA256 payment signature verification."""
+
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    order_details: dict = {}
+
+
+class PaymentTransactionOut(CamelModel):
+    """Audit ledger record for payments."""
+
+    id: str
+    razorpay_payment_id: str | None = None
+    razorpay_order_id: str | None = None
+    order_id: str
+    token_number: str | None = None
+    student_id: str
+    student_name: str
+    student_roll: str | None = None
+    amount: float
+    currency: str = "INR"
+    payment_method: str
+    status: Literal["SUCCESS", "FAILED", "PENDING"]
+    failure_reason: str | None = None
+    date_time: str
+    timestamp: float

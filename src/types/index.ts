@@ -206,3 +206,23 @@ export interface NotificationItem {
   read: boolean;
   actionLink?: string;
 }
+
+export interface PaymentTransaction {
+  id: string;
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
+  razorpaySignature?: string;
+  orderId: string;
+  tokenNumber?: string;
+  studentId: string;
+  studentName: string;
+  studentRoll?: string;
+  studentDept?: string;
+  amount: number;
+  currency: string;
+  paymentMethod: string;
+  status: 'SUCCESS' | 'FAILED' | 'PENDING';
+  failureReason?: string;
+  dateTime: string;
+  timestamp: number;
+}
